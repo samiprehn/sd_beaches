@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>San Diego Beach Conditions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script type="module">
+        const beaches = [
+            { name: "Oceanside", lat: 33.1959, lon: -117.3795 },
+            { name: "Carlsbad", lat: 33.1581, lon: -117.3506 },
+            { name: "Leucadia", lat: 33.0462, lon: -117.2931 },
+            { name: "Cardiff", lat: 33.0214, lon: -117.2806 },
+            { name: "Solana Beach", lat: 32.9911, lon: -117.2714 },
+            { name: "Del Mar", lat: 32.9595, lon: -117.2654 },
+            { name: "La Jolla Shores", lat: 32.8571, lon: -117.2573 },
+            { name: "Pacific Beach", lat: 32.7942, lon: -117.2528 },
+            { name: "Mission Beach", lat: 32.7714, lon: -117.2528 },
+            { name: "Ocean Beach", lat: 32.7503, lon: -117.2517 },
+            { name: "Coronado", lat: 32.6859, lon: -117.1831 },
+            { name: "Imperial Beach", lat: 32.5792, lon: -117.1131 }
+        ];
+
+        const waterTempStations = [
+            { name: "Del Mar", buoyId: "46266" },
+            { name: "La Jolla Shores", buoyId: "LJAC1" },
+            { name: "San Diego Bay", buoyId: "SDBC1" },
+            { name: "Imperial Beach", buoyId: "46235" }
+        ];
+
+        let weatherData = {};
+        let waterTempData = {};
+        let tideData = null;
+        let sunData = null;
+        let loading = true;
+
+        const getWeatherDescription = (code) => {
+            const weatherCodes = {
+                0: "Clear", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast",
+                45: "Foggy", 48: "Foggy", 51: "Light Drizzle", 53: "Drizzle",
+                61: "Light Rain", 63: "Moderate Rain", 65: "Heavy Rain",
+                80: "Rain Showers", 95: "Thunderstorm"
+            };
+            return weatherCodes[code] || "Mixed";
+        };
+
+        const getWindDirection = (degrees) => {
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            return directions[Math.round(degrees / 45) % 8];
+        };
+
+        async function fetchWaterTemp(buoyId) {
+            try {
+                const res = await fetch(`https://corsproxy.io/?https://www.ndbc.noaa.gov/data/realtime2/${buoyId}.txt`);
+                if (!res.ok) return null;
+                
+                const text = await res.text();
+                const lines = text.trim().split('\n');
+                if (lines.length < 3) return null;
+                
+                const dataLine = lines[2].trim().split(/\s+/);
+                const headerLine = lines[0].trim().split(/\s+/);
+                
+                const wtmpIndex = headerLine.indexOf('WTMP');
+                if (wtmpIndex === -1) return null;
+                
+                const tempC = parseFloat(dataLine[wtmpIndex]);
+                if (isNaN(tempC) || tempC === 99 || tempC === 999) return null;
+                
+                return (tempC * 9/5 + 32).toFixed(1);
+            } catch (err) {
+                console.error(`Error fetching water temp for buoy ${buoyId}:`, err);
+                return null;
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const now = new Date();
+                const today = now.toISOString().split('T')[0].replace(/-/g, '');
+                const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0].replace(/-/g, '');
+                
+                const tideRes = await fetch(
+                    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${today}&end_date=${tomorrow}&station=9410230&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&interval=hilo&format=json`
+                );
+                
+                if (tideRes.ok) {
+                    const tideJson = await tideRes.json();
+                    tideData = tideJson.predictions || [];
+                }
+
+                // Fetch sunrise/sunset data
+                const sunRes = await fetch(
+                    `https://api.sunrise-sunset.org/json?lat=32.7503&lng=-117.2517&formatted=0&date=today`
+                );
+                
+                if (sunRes.ok) {
+                    const sunJson = await sunRes.json();
+                    if (sunJson.status === 'OK') {
+                        sunData = sunJson.results;
+                    }
+                }
+
+                for (let i = 0; i < beaches.length; i++) {
+                    const beach = beaches[i];
+                    const res = await fetch(
+                        `https://api.open-meteo.com/v1/forecast?latitude=${beach.lat}&longitude=${beach.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`
+                    );
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        weatherData[i] = {
+                            current: data.current,
+                            dailyMax: data.daily.temperature_2m_max[0]
+                        };
+                    }
+                }
+
+                for (let i = 0; i < waterTempStations.length; i++) {
+                    const station = waterTempStations[i];
+                    const waterTemp = await fetchWaterTemp(station.buoyId);
+                    waterTempData[i] = waterTemp;
+                }
+
+                loading = false;
+                render();
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                loading = false;
+                render();
+            }
+        }
+
+        function render() {
+            const html = `
+                <div class="min-h-screen bg-gradient-to-br from-blue-400 via-blue-300 to-cyan-300 p-2">
+                    <div class="max-w-6xl mx-auto">
+                        <!-- Header -->
+                        <div class="text-center mb-3">
+                            <h1 class="text-2xl font-bold text-white drop-shadow-lg">San Diego Beach Info 🏖️</h1>
+                        </div>
+
+                        <!-- Timing -->
+                        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
+                            <div class="bg-gradient-to-r from-cyan-600 to-blue-600 p-3 text-white">
+                                <h2 class="text-xl font-bold">Timing 🌅 🌇 🌊 🕐</h2>
+                            </div>
+                            <div class="p-3 bg-gradient-to-br from-cyan-50 to-blue-50">
+                                ${loading ? `
+                                    <div class="bg-white p-4 rounded-lg text-center border border-cyan-100">
+                                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600 mx-auto"></div>
+                                        <p class="text-gray-600 mt-2 text-sm">Loading data...</p>
+                                    </div>
+                                ` : `
+                                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                                        ${sunData ? `
+                                            <div class="bg-white p-2 rounded-lg border border-amber-200">
+                                                <p class="text-xs font-semibold mb-1 text-amber-600">Sunrise</p>
+                                                <p class="text-base font-bold text-gray-900">${new Date(sunData.sunrise).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}</p>
+                                            </div>
+                                            <div class="bg-white p-2 rounded-lg border border-orange-200">
+                                                <p class="text-xs font-semibold mb-1 text-orange-600">Sunset</p>
+                                                <p class="text-base font-bold text-gray-900">${new Date(sunData.sunset).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}</p>
+                                            </div>
+                                        ` : ''}
+                                        ${tideData && tideData.length > 0 ? tideData.slice(0, 4).map(tide => `
+                                            <div class="bg-white p-2 rounded-lg border border-cyan-100">
+                                                <p class="text-xs font-semibold mb-1 ${tide.type === 'H' ? 'text-blue-600' : 'text-orange-600'}">
+                                                    ${tide.type === 'H' ? 'High Tide' : 'Low Tide'}
+                                                </p>
+                                                <p class="text-base font-bold text-gray-900">${new Date(tide.t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} (${parseFloat(tide.v).toFixed(1)} ft)</p>
+                                            </div>
+                                        `).join('') : `
+                                            <div class="bg-white p-2 rounded-lg text-center border border-cyan-100 col-span-4">
+                                                <p class="text-gray-600 text-sm">Tide data unavailable</p>
+                                            </div>
+                                        `}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+
+                        <!-- Beach Conditions -->
+                        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
+                            <div class="bg-gradient-to-r from-amber-500 to-yellow-600 p-3 text-white">
+                                <h2 class="text-xl font-bold">Conditions ☀️ ⛅</h2>
+                            </div>
+                            <div class="p-3">
+                                ${loading || !weatherData[0] ? `
+                                    <div class="flex items-center justify-center py-4">
+                                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                    </div>
+                                ` : `
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full">
+                                            <thead>
+                                                <tr class="border-b border-gray-200">
+                                                    <th class="text-left py-2 px-2 font-semibold text-gray-700 text-sm">Beach</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Current</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">High</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Conditions</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Wind</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Humidity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${beaches.map((beach, idx) => {
+                                                    const weather = weatherData[idx];
+                                                    if (!weather) return '';
+                                                    return `
+                                                        <tr class="border-b border-gray-100 hover:bg-amber-50 transition-colors">
+                                                            <td class="py-2 px-2">
+                                                                <div class="font-bold text-gray-900 text-sm">${beach.name}</div>
+                                                            </td>
+                                                            <td class="text-center py-2 px-2">
+                                                                <div class="text-lg font-bold text-blue-600">${Math.round(weather.current.temperature_2m)}°F</div>
+                                                            </td>
+                                                            <td class="text-center py-2 px-2">
+                                                                <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°F</div>
+                                                            </td>
+                                                            <td class="text-center py-2 px-2">
+                                                                <div class="font-semibold text-gray-900 text-sm">${getWeatherDescription(weather.current.weather_code)}</div>
+                                                            </td>
+                                                            <td class="text-center py-2 px-2">
+                                                                <div class="font-semibold text-gray-900 text-sm">${Math.round(weather.current.wind_speed_10m)} mph ${getWindDirection(weather.current.wind_direction_10m)}</div>
+                                                            </td>
+                                                            <td class="text-center py-2 px-2">
+                                                                <div class="text-base font-bold text-gray-900">${weather.current.relative_humidity_2m}%</div>
+                                                            </td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+
+                        <!-- Ocean Temperature -->
+                        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
+                            <div class="bg-gradient-to-r from-cyan-600 to-teal-600 p-3 text-white">
+                                <h2 class="text-xl font-bold">Ocean Temperature 🌡️</h2>
+                            </div>
+                            <div class="p-3">
+                                ${loading ? `
+                                    <div class="flex items-center justify-center py-4">
+                                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600"></div>
+                                    </div>
+                                ` : `
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        ${waterTempStations.map((station, idx) => {
+                                            const temp = waterTempData[idx];
+                                            return `
+                                                <div class="bg-cyan-50 p-2 rounded-lg border border-cyan-100">
+                                                    <p class="text-xs text-gray-600 mb-1">${station.name}</p>
+                                                    <p class="text-xl font-bold text-cyan-600">${temp ? temp + '°F' : '—'}</p>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+
+                        <p class="text-center text-white text-xs mt-3">
+                            Weather data from Open-Meteo | Tide and water temp data from NOAA
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('app').innerHTML = html;
+        }
+
+        render();
+        fetchData();
+    </script>
+</body>
+</html>
