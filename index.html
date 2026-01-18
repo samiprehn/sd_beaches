@@ -241,10 +241,10 @@
                                             <thead>
                                                 <tr class="border-b border-gray-200">
                                                     <th class="text-left py-2 px-2 font-semibold text-gray-700 text-sm">Beach</th>
-                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Current</th>
-                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">High</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Current Temp</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">High Temp</th>
                                                     <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Conditions</th>
-                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Wind</th>
+                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Wind (mph)</th>
                                                     <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Humidity</th>
                                                 </tr>
                                             </thead>
@@ -267,7 +267,7 @@
                                                                 <div class="font-semibold text-gray-900 text-sm">${getWeatherDescription(weather.current.weather_code)}</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
-                                                                <div class="font-semibold text-gray-900 text-sm">${Math.round(weather.current.wind_speed_10m)} mph ${getWindDirection(weather.current.wind_direction_10m)}</div>
+                                                                <div class="font-semibold text-gray-900 text-sm">${Math.round(weather.current.wind_speed_10m)} ${getWindDirection(weather.current.wind_direction_10m)}</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
                                                                 <div class="text-base font-bold text-gray-900">${weather.current.relative_humidity_2m}%</div>
