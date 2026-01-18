@@ -11,18 +11,53 @@
 
     <script type="module">
         const beaches = [
-            { name: "Oceanside", lat: 33.1959, lon: -117.3795 },
-            { name: "Carlsbad", lat: 33.1581, lon: -117.3506 },
+            { name: "Oceanside", lat: 33.1959, lon: -117.3795,
+                webcams: [
+                    { name: "Oceanside Rooftop Bar", url: "https://www.webcamtaxi.com/en/usa/california/oceanside-beach-cam.html"}
+                ] },
+            { name: "Carlsbad", lat: 33.1581, lon: -117.3506,
+                webcams: [
+                    { name: "Carlsbad Beach", url: "https://hdontap.com/stream/155380/carlsbad-beach-surf-live-webcam/"}
+                ] },
             { name: "Leucadia", lat: 33.0462, lon: -117.2931 },
             { name: "Cardiff", lat: 33.0214, lon: -117.2806 },
             { name: "Solana Beach", lat: 32.9911, lon: -117.2714 },
-            { name: "Del Mar", lat: 32.9595, lon: -117.2654 },
-            { name: "La Jolla Shores", lat: 32.8571, lon: -117.2573 },
-            { name: "Pacific Beach", lat: 32.7942, lon: -117.2528 },
-            { name: "Mission Beach", lat: 32.7714, lon: -117.2528 },
-            { name: "Ocean Beach", lat: 32.7503, lon: -117.2517 },
-            { name: "Coronado", lat: 32.6859, lon: -117.1831 },
-            { name: "Imperial Beach", lat: 32.5792, lon: -117.1131 }
+            { name: "Del Mar", lat: 32.9595, lon: -117.2654,
+                webcams: [
+                    { name: "Del Mar Beach North", url: "https://hdontap.com/stream/199841/del-mar-beach-north-live-webcam/" },
+                    { name: "Del Mar Beach Community Overlook", url: "https://hdontap.com/stream/101962/del-mar-beach-community-ultra-hd-overlook-live-webcvam/" },
+                    { name: "17th St Del Mar Beach Southwest", url: "https://hdontap.com/stream/122912/17th-st-del-mar-beach-4k-southwest-live-webcam/" },
+                    { name: "Del Mar Beach South Roaming", url: "https://hdontap.com/stream/399483/del-mar-beach-south-roaming-live-webcam/" }
+                ] },
+            { name: "La Jolla Shores", lat: 32.8571, lon: -117.2573,
+                webcams: [
+                    {name: "Scripps Pier", url: "https://scripps.ucsd.edu/piercam"},
+                    {name: "La Jolla Shores Surf", url: "https://hdontap.com/stream/532541/la-jolla-shores-live-surf-cam/" },
+                    {name: "La Jolla Shores Hotel", url: "https://www.ljshoreshotel.com/beach-cam/" },
+                    {name: "La Jolla Shores Overlook", url: "https://hdontap.com/stream/449923/la-jolla-shores-overlook-live-webcam/" }
+                ] },
+            { name: "Pacific Beach", lat: 32.7942, lon: -117.2528,
+                webcams: [
+                    {name: "Pacific Beach Surf", url: "https://hdontap.com/stream/186699/pacific-beach-live-surf-webcam/" }
+                ] },
+            { name: "Mission Bay", lat: 32.7778, lon: -117.2265,
+                webcams: [
+                    {name: "Mission Bay Resort", url: "https://hdontap.com/stream/265560/san-diego-mission-bay-resort-live-webcam/" },
+                    {name: "Mission Bay & Beach", url: "https://www.catamaranresort.com/live-cam?utm_source=sdta"}
+                ] },
+            { name: "Ocean Beach", lat: 32.7503, lon: -117.2517, 
+                webcams: [
+                    { name: "OB Beach Cam", url: "https://oceanbeachsandiego.com/media/ob-beach-cam" }
+                ] },
+            { name: "Coronado", lat: 32.6859, lon: -117.1831,
+                webcams: [
+                    { name: "Hotel Del Coronado North Roaming", url: "https://hdontap.com/stream/327869/hotel-del-coronado-north-roaming-live-cam/" },
+                    { name: "Hotel Del Coronado Roaming", url: "https://hdontap.com/stream/964952/hotel-del-coronado-4k-roaming-live-cam/" }
+                ] },
+            { name: "Imperial Beach", lat: 32.5792, lon: -117.1131,
+                webcams: [
+                    { name: "Imperial Beach Pier", url: "https://www.surfline.com/surf-report/imperial-beach-pier/5842041f4e65fad6a7708844?camId=58349a7fe411dc743a5d529d" }
+                ] }
         ];
 
         const waterTempStations = [
@@ -266,7 +301,29 @@
                                 `}
                             </div>
                         </div>
-
+                        
+                        <!-- Webcams -->
+                        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                            <div class="bg-gradient-to-r from-orange-600 to-red-600 p-3 text-white">
+                                <h2 class="text-xl font-bold">Webcams 📹</h2>
+                            </div>
+                            <div class="p-3 space-y-3">
+                                ${beaches.map((beach, idx) => `
+                                    <div>
+                                        <h3 class="text-base font-bold text-gray-900 mb-2">${beach.name}</h3>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            ${beach.webcams.map(cam => `
+                                                <a href="${cam.url}" target="_blank" rel="noopener noreferrer" 
+                                                   class="block bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition-colors text-sm">
+                                                    ${cam.name}
+                                                </a>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                `).join('<hr class="my-3 border-gray-200">')}
+                            </div>
+                        </div>
+                        
                         <p class="text-center text-white text-xs mt-3">
                             Weather data from Open-Meteo | Tide and water temp data from NOAA
                         </p>
