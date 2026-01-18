@@ -94,7 +94,7 @@
 
         async function fetchWaterTemp(buoyId) {
             try {
-                const res = await fetch(`https://www.ndbc.noaa.gov/data/realtime2/${buoyId}.txt`);
+                const res = await fetch(`https://corsproxy.io/?https://www.ndbc.noaa.gov/data/realtime2/${buoyId}.txt`);
                 if (!res.ok) return null;
                 
                 const text = await res.text();
