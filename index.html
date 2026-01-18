@@ -258,10 +258,10 @@
                                                                 <div class="font-bold text-gray-900 text-sm">${beach.name}</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
-                                                                <div class="text-lg font-bold text-blue-600">${Math.round(weather.current.temperature_2m)}°F</div>
+                                                                <div class="text-lg font-bold text-blue-600">${Math.round(weather.current.temperature_2m)}°</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
-                                                                <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°F</div>
+                                                                <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
                                                                 <div class="font-semibold text-gray-900 text-sm">${getWeatherDescription(weather.current.weather_code)}</div>
@@ -299,7 +299,7 @@
                                             return `
                                                 <div class="bg-cyan-50 p-2 rounded-lg border border-cyan-100">
                                                     <p class="text-xs text-gray-600 mb-1">${station.name}</p>
-                                                    <p class="text-xl font-bold text-cyan-600">${temp ? temp + '°F' : '—'}</p>
+                                                    <p class="text-xl font-bold text-cyan-600">${temp ? temp + '°' : '—'}</p>
                                                 </div>
                                             `;
                                         }).join('')}
