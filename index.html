@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>San Diego Beach Conditions</title>
+    <title>SD Beach Info</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
@@ -79,6 +79,8 @@
         let sunData = null;
         let uvData = null;
         let loading = true;
+        let selectedTab = 'today'; // 'today', 'saturday', 'sunday'
+        let selectedDate = new Date();
 
         const getWeatherDescription = (code) => {
             const weatherCodes = {
@@ -93,6 +95,39 @@
         const getWindDirection = (degrees) => {
             const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
             return directions[Math.round(degrees / 45) % 8];
+        };
+
+        const getNextDayOfWeek = (dayOfWeek) => {
+            // dayOfWeek: 0 = Sunday, 6 = Saturday
+            const today = new Date();
+            const todayDay = today.getDay();
+            let daysToAdd = dayOfWeek - todayDay;
+            if (daysToAdd <= 0) daysToAdd += 7;
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + daysToAdd);
+            return targetDate;
+        };
+
+        const formatDateLong = (date) => {
+            return date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+            });
+        };
+
+        const setTab = (tab) => {
+            selectedTab = tab;
+            if (tab === 'today') {
+                selectedDate = new Date();
+            } else if (tab === 'saturday') {
+                selectedDate = getNextDayOfWeek(6);
+            } else if (tab === 'sunday') {
+                selectedDate = getNextDayOfWeek(0);
+            }
+            loading = true;
+            render();
+            fetchData();
         };
 
         async function fetchWaterTemp(buoyId) {
@@ -122,9 +157,10 @@
 
         async function fetchData() {
             try {
-                const now = new Date();
-                const today = now.toISOString().split('T')[0].replace(/-/g, '');
-                const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0].replace(/-/g, '');
+                const targetDate = new Date(selectedDate);
+                const today = targetDate.toISOString().split('T')[0].replace(/-/g, '');
+                const tomorrow = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0].replace(/-/g, '');
+                const dateForApi = targetDate.toISOString().split('T')[0];
                 
                 const tideRes = await fetch(
                     `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${today}&end_date=${tomorrow}&station=9410230&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&interval=hilo&format=json`
@@ -137,7 +173,7 @@
 
                 // Fetch sunrise/sunset data
                 const sunRes = await fetch(
-                    `https://api.sunrise-sunset.org/json?lat=32.7503&lng=-117.2517&formatted=0&date=today`
+                    `https://api.sunrise-sunset.org/json?lat=32.7503&lng=-117.2517&formatted=0&date=${dateForApi}`
                 );
                 
                 if (sunRes.ok) {
@@ -154,15 +190,15 @@
 
                 if (uvRes.ok) {
                     const uvJson = await uvRes.json();
-                    const todayDate = new Date();
-                    
-                    // Find today's data
+
+                    // Find selected date's data
                     const todayHours = uvJson.hourly.time.map(t => new Date(t));
-                    const todayIndex = todayHours.findIndex(d => 
-                        d.getDate() === todayDate.getDate() && 
-                        d.getMonth() === todayDate.getMonth()
+                    const todayIndex = todayHours.findIndex(d =>
+                        d.getDate() === targetDate.getDate() &&
+                        d.getMonth() === targetDate.getMonth() &&
+                        d.getFullYear() === targetDate.getFullYear()
                     );
-                    
+
                     if (todayIndex !== -1) {
                         uvData = {
                             uv10am: Math.round(uvJson.hourly.uv_index[todayIndex + 10]),
@@ -176,15 +212,42 @@
                 for (let i = 0; i < beaches.length; i++) {
                     const beach = beaches[i];
                     const res = await fetch(
-                        `https://api.open-meteo.com/v1/forecast?latitude=${beach.lat}&longitude=${beach.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`
+                        `https://api.open-meteo.com/v1/forecast?latitude=${beach.lat}&longitude=${beach.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`
                     );
-                    
+
                     if (res.ok) {
                         const data = await res.json();
-                        weatherData[i] = {
-                            current: data.current,
-                            dailyMax: data.daily.temperature_2m_max[0]
-                        };
+
+                        // Find the index for selected date
+                        const dateIndex = data.daily.time.findIndex(d => d === dateForApi);
+
+                        if (selectedTab === 'today') {
+                            weatherData[i] = {
+                                current: data.current,
+                                dailyMax: data.daily.temperature_2m_max[0]
+                            };
+                        } else if (dateIndex !== -1) {
+                            // For future dates, use noon forecast (12pm)
+                            const hourIndex = data.hourly.time.findIndex(t => {
+                                const dt = new Date(t);
+                                return dt.getDate() === targetDate.getDate() &&
+                                       dt.getMonth() === targetDate.getMonth() &&
+                                       dt.getHours() === 12;
+                            });
+
+                            if (hourIndex !== -1) {
+                                weatherData[i] = {
+                                    current: {
+                                        temperature_2m: data.hourly.temperature_2m[hourIndex],
+                                        relative_humidity_2m: data.hourly.relative_humidity_2m[hourIndex],
+                                        weather_code: data.hourly.weather_code[hourIndex],
+                                        wind_speed_10m: data.hourly.wind_speed_10m[hourIndex],
+                                        wind_direction_10m: data.hourly.wind_direction_10m[hourIndex]
+                                    },
+                                    dailyMax: data.daily.temperature_2m_max[dateIndex]
+                                };
+                            }
+                        }
                     }
                 }
 
@@ -204,12 +267,43 @@
         }
 
         function render() {
+            const today = new Date();
+            const nextSaturday = getNextDayOfWeek(6);
+            const nextSunday = getNextDayOfWeek(0);
+
             const html = `
                 <div class="min-h-screen bg-gradient-to-br from-blue-400 via-blue-300 to-cyan-300 p-2">
                     <div class="max-w-6xl mx-auto">
                         <!-- Header -->
-                        <div class="text-center mb-3">
+                        <div class="text-center mb-2">
                             <h1 class="text-2xl font-bold text-white drop-shadow-lg">San Diego Beach Info 🏖️</h1>
+                        </div>
+
+                        <!-- Tabs -->
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden mb-2">
+                            <div class="flex">
+                                <button
+                                    onclick="setTab('today')"
+                                    class="flex-1 py-1.5 px-2 text-sm font-semibold transition-colors ${selectedTab === 'today' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}"
+                                >
+                                    <div>Today</div>
+                                    <div class="text-xs font-normal ${selectedTab === 'today' ? 'text-blue-100' : 'text-gray-500'}">${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                </button>
+                                <button
+                                    onclick="setTab('saturday')"
+                                    class="flex-1 py-1.5 px-2 text-sm font-semibold transition-colors border-l border-r border-gray-200 ${selectedTab === 'saturday' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}"
+                                >
+                                    <div>Saturday</div>
+                                    <div class="text-xs font-normal ${selectedTab === 'saturday' ? 'text-blue-100' : 'text-gray-500'}">${nextSaturday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                </button>
+                                <button
+                                    onclick="setTab('sunday')"
+                                    class="flex-1 py-1.5 px-2 text-sm font-semibold transition-colors ${selectedTab === 'sunday' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}"
+                                >
+                                    <div>Sunday</div>
+                                    <div class="text-xs font-normal ${selectedTab === 'sunday' ? 'text-blue-100' : 'text-gray-500'}">${nextSunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Timing -->
@@ -268,7 +362,7 @@
                                             <thead>
                                                 <tr class="border-b border-gray-200">
                                                     <th class="text-left py-2 px-2 font-semibold text-gray-700 text-sm">Beach</th>
-                                                    <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Current Temp</th>
+                                                    ${selectedTab === 'today' ? '<th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Current Temp</th>' : ''}
                                                     <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">High Temp</th>
                                                     <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Conditions</th>
                                                     <th class="text-center py-2 px-2 font-semibold text-gray-700 text-sm">Wind (mph)</th>
@@ -284,9 +378,11 @@
                                                             <td class="py-2 px-2">
                                                                 <div class="font-bold text-gray-900 text-sm">${beach.name}</div>
                                                             </td>
+                                                            ${selectedTab === 'today' ? `
                                                             <td class="text-center py-2 px-2">
                                                                 <div class="text-lg font-bold text-blue-600">${Math.round(weather.current.temperature_2m)}°</div>
                                                             </td>
+                                                            ` : ''}
                                                             <td class="text-center py-2 px-2">
                                                                 <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°</div>
                                                             </td>
@@ -347,6 +443,7 @@
                         </div>
 
                         <!-- Ocean Temperature -->
+                        ${selectedTab === 'today' ? `
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
                             <div class="bg-gradient-to-r from-cyan-600 to-teal-600 p-3 text-white">
                                 <h2 class="text-xl font-bold">Ocean Temperature 🌡️</h2>
@@ -371,8 +468,10 @@
                                 `}
                             </div>
                         </div>
-                        
+                        ` : ''}
+
                         <!-- Webcams -->
+                        ${selectedTab === 'today' ? `
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden">
                             <div class="bg-gradient-to-r from-orange-600 to-red-600 p-3 text-white">
                                 <h2 class="text-xl font-bold">Webcams 📹</h2>
@@ -393,7 +492,8 @@
                                 `).join('<hr class="my-3 border-gray-200">')}
                             </div>
                         </div>
-                        
+                        ` : ''}
+
                         <p class="text-center text-white text-xs mt-3">
                             Weather data from Open-Meteo | Tide and water temp data from NOAA
                         </p>
@@ -403,6 +503,9 @@
 
             document.getElementById('app').innerHTML = html;
         }
+
+        // Make setTab globally accessible
+        window.setTab = setTab;
 
         render();
         fetchData();
