@@ -270,6 +270,7 @@
 
         function render() {
             const today = new Date();
+            const isSaturday = today.getDay() === 6;
             const nextSaturday = getNextDayOfWeek(6);
             const nextSunday = getNextDayOfWeek(0);
 
@@ -291,16 +292,16 @@
                                     <div>Today</div>
                                     <div class="text-xs font-normal ${selectedTab === 'today' ? 'text-blue-100' : 'text-gray-500'}">${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                                 </button>
-                                <button
+                                ${!isSaturday ? `<button
                                     onclick="setTab('saturday')"
                                     class="flex-1 py-1.5 px-2 text-sm font-semibold transition-colors border-l border-r border-gray-200 ${selectedTab === 'saturday' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}"
                                 >
                                     <div>Saturday</div>
                                     <div class="text-xs font-normal ${selectedTab === 'saturday' ? 'text-blue-100' : 'text-gray-500'}">${nextSaturday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                </button>
+                                </button>` : ''}
                                 <button
                                     onclick="setTab('sunday')"
-                                    class="flex-1 py-1.5 px-2 text-sm font-semibold transition-colors ${selectedTab === 'sunday' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}"
+                                    class="flex-1 py-1.5 px-2 text-sm font-semibold transition-colors border-l border-gray-200 ${selectedTab === 'sunday' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}"
                                 >
                                     <div>Sunday</div>
                                     <div class="text-xs font-normal ${selectedTab === 'sunday' ? 'text-blue-100' : 'text-gray-500'}">${nextSunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
