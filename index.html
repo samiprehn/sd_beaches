@@ -85,12 +85,12 @@
 
         const getWeatherDescription = (code) => {
             const weatherCodes = {
-                0: "Clear", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast",
-                45: "Foggy", 48: "Foggy", 51: "Light Drizzle", 53: "Drizzle",
-                61: "Light Rain", 63: "Moderate Rain", 65: "Heavy Rain",
-                80: "Rain Showers", 95: "Thunderstorm"
+                0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+                45: "🌫️", 48: "🌫️", 51: "🌦️", 53: "🌧️",
+                61: "🌧️", 63: "🌧️", 65: "🌧️",
+                80: "🌦️", 95: "⛈️"
             };
-            return weatherCodes[code] || "Mixed";
+            return weatherCodes[code] || "🌈";
         };
 
         const getWindDirection = (degrees) => {
