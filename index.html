@@ -406,7 +406,7 @@
                                                             </td>
                                                             ` : ''}
                                                             <td class="text-center py-2 px-2">
-                                                                <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°${weather.peakFeel != null ? `<span class="text-xs text-gray-500 font-normal ml-1">feels ${Math.round(weather.peakFeel)}°</span>` : ''}</div>
+                                                                <div class="text-lg font-bold text-orange-600 whitespace-nowrap">${Math.round(weather.dailyMax)}°${weather.peakFeel != null ? `<span class="text-xs text-gray-500 font-normal ml-1">feels ${Math.round(weather.peakFeel)}°</span>` : ''}</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
                                                                 <div class="font-semibold text-gray-900 text-sm">${getWeatherDescription(weather.current.weather_code)}</div>
