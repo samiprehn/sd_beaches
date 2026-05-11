@@ -6,8 +6,15 @@
     <title>SD Beach Info</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏖️</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { min-height: 100vh; background: linear-gradient(90deg, #e2bb7e 0%, #f0d9a8 35%, #fff5dc 60%, #ffffff 64%, #c2e6f6 72%, #5fb4e6 88%, #1d7fc4 100%); }
+        #sand-emojis { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .sand-emoji { position: absolute; user-select: none; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25)); }
+        #app { position: relative; z-index: 1; }
+    </style>
 </head>
 <body>
+    <div id="sand-emojis"></div>
     <div id="app"></div>
 
     <script type="module">
@@ -213,7 +220,7 @@
                 for (let i = 0; i < beaches.length; i++) {
                     const beach = beaches[i];
                     const res = await fetch(
-                        `https://api.open-meteo.com/v1/forecast?latitude=${beach.lat}&longitude=${beach.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`
+                        `https://api.open-meteo.com/v1/forecast?latitude=${beach.lat}&longitude=${beach.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`
                     );
 
                     if (res.ok) {
@@ -222,10 +229,22 @@
                         // Find the index for selected date
                         const dateIndex = data.daily.time.findIndex(d => d === dateForApi);
 
+                        // Compute peak feels-like: the apparent_temperature at the
+                        // hour of the daily high temp, for the selected date.
+                        const dayPrefix = dateForApi;
+                        let peakIdx = -1, peakTemp = -Infinity;
+                        for (let h = 0; h < data.hourly.time.length; h++) {
+                            if (!data.hourly.time[h].startsWith(dayPrefix)) continue;
+                            const t = data.hourly.temperature_2m[h];
+                            if (t > peakTemp) { peakTemp = t; peakIdx = h; }
+                        }
+                        const peakFeel = peakIdx >= 0 ? data.hourly.apparent_temperature[peakIdx] : null;
+
                         if (selectedTab === 'today') {
                             weatherData[i] = {
                                 current: data.current,
-                                dailyMax: data.daily.temperature_2m_max[0]
+                                dailyMax: data.daily.temperature_2m_max[0],
+                                peakFeel
                             };
                         } else if (dateIndex !== -1) {
                             // For future dates, use noon forecast (12pm)
@@ -245,7 +264,8 @@
                                         wind_speed_10m: data.hourly.wind_speed_10m[hourIndex],
                                         wind_direction_10m: data.hourly.wind_direction_10m[hourIndex]
                                     },
-                                    dailyMax: data.daily.temperature_2m_max[dateIndex]
+                                    dailyMax: data.daily.temperature_2m_max[dateIndex],
+                                    peakFeel
                                 };
                             }
                         }
@@ -274,11 +294,11 @@
             const nextSunday = getNextDayOfWeek(0);
 
             const html = `
-                <div class="min-h-screen p-2" style="background: linear-gradient(90deg, #e2bb7e 0%, #f0d9a8 35%, #fff5dc 60%, #ffffff 64%, #c2e6f6 72%, #5fb4e6 88%, #1d7fc4 100%);">
+                <div class="p-2">
                     <div class="max-w-6xl mx-auto">
                         <!-- Header -->
                         <div class="text-center mb-2">
-                            <h1 class="text-2xl font-bold" style="color: #3a2510; text-shadow: 0 1px 3px rgba(255,255,255,0.55);"><span style="filter: drop-shadow(0 0 3px rgba(0,0,0,0.55));">🏖️</span> San Diego Beach Info</h1>
+                            <h1 class="text-2xl font-bold" style="color: #3a2510; text-shadow: 0 1px 3px rgba(255,255,255,0.55);">San Diego Beach Info</h1>
                         </div>
 
                         <!-- Tabs -->
@@ -311,7 +331,7 @@
                         <!-- Timing -->
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
                             <div class="bg-gradient-to-r from-cyan-600 to-blue-600 p-3 text-white">
-                                <h2 class="text-xl font-bold">Timing 🌅 🌇 🌊 🕐</h2>
+                                <h2 class="text-xl font-bold">Timing</h2>
                             </div>
                             <div class="p-3 bg-gradient-to-br from-cyan-50 to-blue-50">
                                 ${loading ? `
@@ -351,7 +371,7 @@
                         <!-- Beach Conditions -->
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
                             <div class="bg-gradient-to-r from-amber-500 to-yellow-600 p-3 text-white">
-                                <h2 class="text-xl font-bold">Conditions ☀️ ⛅</h2>
+                                <h2 class="text-xl font-bold">Conditions</h2>
                             </div>
                             <div class="p-3">
                                 ${loading || !weatherData[0] ? `
@@ -386,7 +406,7 @@
                                                             </td>
                                                             ` : ''}
                                                             <td class="text-center py-2 px-2">
-                                                                <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°</div>
+                                                                <div class="text-lg font-bold text-orange-600">${Math.round(weather.dailyMax)}°${weather.peakFeel != null ? `<span class="text-xs text-gray-500 font-normal ml-1">feels ${Math.round(weather.peakFeel)}°</span>` : ''}</div>
                                                             </td>
                                                             <td class="text-center py-2 px-2">
                                                                 <div class="font-semibold text-gray-900 text-sm">${getWeatherDescription(weather.current.weather_code)}</div>
@@ -410,7 +430,7 @@
                         <!-- UV Index -->
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
                             <div class="bg-gradient-to-r from-orange-600 to-yellow-500 p-3 text-white">
-                                <h2 class="text-xl font-bold">UV Index ☀️</h2>
+                                <h2 class="text-xl font-bold">UV Index</h2>
                             </div>
                             <div class="p-3">
                                 ${loading ? `
@@ -448,7 +468,7 @@
                         ${selectedTab === 'today' ? `
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-3">
                             <div class="bg-gradient-to-r from-cyan-600 to-teal-600 p-3 text-white">
-                                <h2 class="text-xl font-bold">Ocean Temperature 🌡️</h2>
+                                <h2 class="text-xl font-bold">Ocean Temperature</h2>
                             </div>
                             <div class="p-3">
                                 ${loading ? `
@@ -476,7 +496,7 @@
                         ${selectedTab === 'today' ? `
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden">
                             <div class="bg-gradient-to-r from-orange-600 to-red-600 p-3 text-white">
-                                <h2 class="text-xl font-bold">Webcams 📹</h2>
+                                <h2 class="text-xl font-bold">Webcams</h2>
                             </div>
                             <div class="p-3 space-y-3">
                                 ${beaches.filter(beach => beach.webcams && beach.webcams.length > 0).map((beach, idx) => `
@@ -510,6 +530,41 @@
 
         // Make setTab globally accessible
         window.setTab = setTab;
+
+        // Sandy-side emoji scatter (left ~45% of viewport)
+        (function () {
+            const container = document.getElementById('sand-emojis');
+            if (!container) return;
+            const emoji = '🏖️';
+            const w = window.innerWidth;
+            const h = Math.max(window.innerHeight, document.documentElement.scrollHeight, 1200);
+            const target = 18;
+            const placed = [];
+            const buffer = 14;
+            for (let attempt = 0; attempt < target * 8 && placed.length < target; attempt++) {
+                const sizeRem = 1.8 + Math.random() * 2.2;
+                const r = sizeRem * 16 * 0.55;
+                const x = Math.random() * (w * 0.42);
+                const y = Math.random() * h;
+                let overlap = false;
+                for (const p of placed) {
+                    const dx = x - p.x, dy = y - p.y;
+                    const minDist = r + p.r + buffer;
+                    if (dx * dx + dy * dy < minDist * minDist) { overlap = true; break; }
+                }
+                if (overlap) continue;
+                placed.push({ x, y, r });
+                const span = document.createElement('span');
+                span.className = 'sand-emoji';
+                span.textContent = emoji;
+                span.style.fontSize = sizeRem + 'rem';
+                span.style.left = x.toFixed(0) + 'px';
+                span.style.top = y.toFixed(0) + 'px';
+                span.style.transform = `rotate(${(Math.random() * 50 - 25).toFixed(0)}deg)`;
+                span.style.opacity = (0.7 + Math.random() * 0.3).toFixed(2);
+                container.appendChild(span);
+            }
+        })();
 
         render();
         fetchData();
